@@ -225,7 +225,6 @@ int runProgram(UINT code_addr)
 	{ // AccCom processor execution loop
 
 		// fetch cycle
-		int a = 0;
 		mar = pc;
 		mbr = readWord(mar);
 		ir = mbr;
@@ -237,7 +236,31 @@ int runProgram(UINT code_addr)
 		switch (ir_op)
 		{
 		case 0x0000: // Register function
-			break;
+			ir_rs = ir & 0x0E00;
+			ir_rt = ir & 0x1C00;
+			ir_rd = ir & 0x0038;
+			ir_fn = ir & 0x0007;
+			switch (ir_fn)
+			{
+			case 0x0000: // and
+				;
+				break;
+			case 0x0010: // or
+				;
+				break;
+			case 0x0100: // add
+				;
+				break;
+			case 0x0110: // sub
+				;
+				break;
+			case 0x1000: // mul
+				;
+				break;
+			case 0x1010: // div
+				;
+				break;
+			}
 		case 0x1000: // LDA
 			mar = ir_a;
 			mbr = readWord(mar);
