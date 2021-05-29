@@ -243,22 +243,22 @@ int runProgram(UINT code_addr)
 			switch (ir_fn)
 			{
 			case 0x0000: // and
-				;
+				ir_rd = ir_rs & ir_rt;
 				break;
 			case 0x0010: // or
-				;
+				ir_rd = ir_rs || ir_rt;
 				break;
 			case 0x0100: // add
-				;
+				ir_rd = ir_rs + ir_rt;
 				break;
 			case 0x0110: // sub
-				;
+				ir_rd = ir_rs - ir_rt;
 				break;
 			case 0x1000: // mul
-				;
+				ir_rd = ir_rs * ir_rt;
 				break;
 			case 0x1010: // div
-				;
+				ir_rd = ir_rs / ir_rt;
 				break;
 			}
 		case 0x1000: // LDA
