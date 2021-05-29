@@ -171,8 +171,7 @@ UINT loadProgram()
 
 	// CODE section ----------------------------------------
 
-	code_end = writeWords(code_bgn =
-							  0x0200,
+	code_end = writeWords(code_bgn = 0x0200,
 						  0x0003,
 						  0xA010,
 						  0x0004,
@@ -208,16 +207,16 @@ UINT loadProgram()
 int runProgram(UINT code_addr)
 {
 	int status = 1;
-	UINT mar;	 // memory address register
-	UINT mbr;	 // memory buffer register
-	UINT ir;	 // instruction register
-	UINT ir_op;	 // instruction part of IR, IR[15:12]
-	UINT ir_rs;	 // register source of IR, IR[11:9]
-	UINT ir_rt;	 // register target of IR, IR[8:6]
-	UINT ir_rd;	 // register destination of IR, IR[5:3]
-	UINT ir_fn;	 // function part of IR, IR[2:0]
-	UINT ir_imm; // immediate part of IR, IR[5:0]
-	UINT ir_a;	 // address part of IR, IR[11:0]
+	UINT mar = 0;	 // memory address register
+	UINT mbr = 0;	 // memory buffer register
+	UINT ir = 0;	 // instruction register
+	UINT ir_op = 0;	 // operation part of IR, IR[15:12]
+	UINT ir_rs = 0;	 // register source of IR, IR[11:9]
+	UINT ir_rt = 0;	 // register target of IR, IR[8:6]
+	UINT ir_rd = 0;	 // register destination of IR, IR[5:3]
+	UINT ir_fn = 0;	 // function part of IR, IR[2:0]
+	UINT ir_imm = 0; // immediate part of IR, IR[5:0]
+	UINT ir_a = 0;	 // address part of IR, IR[11:0]
 
 	UINT pc = code_addr; // set PC to start address of program
 
@@ -236,9 +235,9 @@ int runProgram(UINT code_addr)
 		switch (ir_op)
 		{
 		case 0x0000: // Register function
-			ir_rs = ir & 0x0E00;
-			ir_rt = ir & 0x1C00;
-			ir_rd = ir & 0x0038;
+			ir_rs = readWord(ir & 0x0E00);
+			ir_rt = readWord(ir & 0x1C00);
+			ir_rd = readWord(ir & 0x0038);
 			ir_fn = ir & 0x0007;
 			switch (ir_fn)
 			{
@@ -261,103 +260,30 @@ int runProgram(UINT code_addr)
 				ir_rd = ir_rs / ir_rt;
 				break;
 			}
-		case 0x1000: // LDA
-			mar = ir_a;
-			mbr = readWord(mar);
-			acc = mbr;
-			rap(acc);
+		case 0x1010: // addi
+			ir_rt = ir_rs + ir_imm;
 			break;
-		case 0x02000: // STA
-			mar = ir_a;
-			writeWord(mar, acc);
-			rap(acc);
+		case 0x1011: // subi
+			ir_rt = ir_rs - ir_imm;
 			break;
-		case 0x3000: // ADD
-
-			m = acc & 0xF000;
-			n = readWord(ir_a) & 0xF000;
-			if (m == n)
-			{
-				result = (acc & 0x0FFF) + (readWord(ir_a) & 0x0FFF);
-				msb = m;
-				acc = result | msb;
-			}
-			else
-			{
-				x = acc & 0x0FFF;
-				y = readWord(ir_a) & 0x0FFF;
-				(x > y) ? (msb = m, result = x - y) : (msb = n, result = y - x);
-				acc = result | msb;
-			}
+		case 0x0100: // lw
+			ir_rt = readWord(ir_rs + ir_imm * 2);
 			break;
-		case 0x4000: // SUB
-			m = acc & 0xF000;
-			n = readWord(ir_a) & 0xF000;
-			if (m == n)
-			{
-				x = acc & 0x0FFF;
-				y = readWord(ir_a) & 0x0FFF;
-				(x > y) ? (msb = 0x0000, result = x - y) : (msb = 0x8000, result = y - x);
-				acc = result | msb;
-			}
-			else
-			{
-				result = (acc & 0x0FFF) + (readWord(ir_a) & 0x0FFF);
-				msb = m;
-				acc = result | msb;
-			}
-			rap(acc);
+		case 0x0101: // sw
+			writeWord(ir_rs + ir_imm * 2, ir_rt);
 			break;
-		case 0x5000: // JMP
+		case 0x0001: // beq
+			if (ir_rs - ir_rt == 0)
+			{
+				pc += ir_imm * 2;
+			}
 			pc = ir_a;
 			break;
-		case 0x6000: // CAL
-			push(pc);
-			pc = ir_a;
+		case 0x0011: // j addr
+			pc += 2 + ir_a * 2;
 			break;
-		case 0x7000: // MUL
-			acc *= readWord(ir_a);
-			break;
-		case 0x8000:
-			switch (ir_a)
-			{
-			case 0x0000: // HLT
-				status = ST_EXIT;
-				break;
-			case 0x0002: // IAC
-
-				if ((acc & 0xF000) == 0)
-					acc += 1;
-				else if (acc == 0x8000)
-					acc = 1;
-				else
-					acc -= 1;
-				break;
-			case 0x0005: // RET
-				pc = pop(ir_a);
-				break;
-			}
-			break;
-		case 0x9000: // BRZ
-			if (*zero == 1)
-			{
-				pc = ir_a;
-			}
-			break;
-		case 0xA000: // BRN
-			if (*sign == 1)
-			{
-				pc = ir_a;
-			}
-			break;
-		case 0xB000: // PRT
-			prt(ir_a);
-			break;
-		case 0xC000: // PRC
-			prc(ir_a);
-			break;
-		case 0xD000: // PRS
-			prs(ir_a);
+		case 0x1111: // j halt
+			status = 0;
 			break;
 		}
 	}
