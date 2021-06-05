@@ -12,6 +12,7 @@
 #include <string.h>
 #include <conio.h>
 
+#pragma warning(disable : 4996)
 //========================================
 // Global Definitions
 //========================================
@@ -162,8 +163,7 @@ UINT loadProgram()
 
 	// DATA section ----------------------------------------
 
-	data_end = writeWords(data_bgn =
-							  0x0100,
+	data_end = writeWords(data_bgn = 0x0100,
 						  0xFFF6, //	0100:	A = -10
 						  0x0014, //	0102:	B = 20
 						  0x0000, //	0104:	Y
@@ -217,6 +217,7 @@ int runProgram(UINT code_addr)
 	UINT ir_fn = 0;	 // function part of IR, IR[2:0]
 	UINT ir_imm = 0; // immediate part of IR, IR[5:0]
 	UINT ir_a = 0;	 // address part of IR, IR[11:0]
+	int n = 0;
 
 	UINT pc = code_addr; // set PC to start address of program
 
@@ -227,65 +228,106 @@ int runProgram(UINT code_addr)
 		mar = pc;
 		mbr = readWord(mar);
 		ir = mbr;
-		ir_op = ir & 0xF000; // get opcode part of IR, IR[15:12]
-		// ir_a = ir & 0x0FFF; // get address part of IR< IR[11:0]
+		printf("mar %x, ir %x\n", mar, ir);
+
+		ir_op = ir & 0xF000;
+		ir_imm = (ir & 0x003F);
 		pc += (UINT)2; // set PC to next ir_a
+
+		ir_rs = ir & 0x0E00;
+		ir_rt = ir & 0x01C0;
+		ir_rd = ir & 0x0038;
+		ir_fn = ir & 0x0007;
+
+		printf("rs %x, rt %x, rd %x\n", ir_rs, ir_rt, ir_rd);
+		scanf("%d", &n);
 
 		// execution cycle
 		switch (ir_op)
 		{
+
 		case 0x0000: // Register function
-			ir_rs = readWord(ir & 0x0E00);
-			ir_rt = readWord(ir & 0x1C00);
-			ir_rd = readWord(ir & 0x0038);
-			ir_fn = ir & 0x0007;
+
 			switch (ir_fn)
 			{
 			case 0x0000: // and
 				ir_rd = ir_rs & ir_rt;
+				printf("and\n");
+				scanf("%d", &n);
 				break;
-			case 0x0010: // or
+			case 0x0001: // or
 				ir_rd = ir_rs || ir_rt;
+				printf("or\n");
+				scanf("%d", &n);
 				break;
-			case 0x0100: // add
-				ir_rd = ir_rs + ir_rt;
+			case 0x0002: // add
+				reg[ir_rd >> 16] = reg[ir_rs] + reg[ir_rt];
+				printf("add\n");
+				scanf("%d", &n);
 				break;
-			case 0x0110: // sub
-				ir_rd = ir_rs - ir_rt;
+			case 0x0003: // sub
+				reg[ir_rd] = reg[ir_rs] - reg[ir_rt];
+				printf("sub\n");
+				scanf("%d", &n);
 				break;
-			case 0x1000: // mul
-				ir_rd = ir_rs * ir_rt;
+			case 0x0004: // mul
+				reg[ir_rd] = reg[ir_rs] * reg[ir_rt];
+				printf("mul %d\n", ir_rd);
+				scanf("%d", &n);
 				break;
-			case 0x1010: // div
-				ir_rd = ir_rs / ir_rt;
+			case 0x0005: // div
+				if (reg[ir_rt] == 0)
+				{ // If divide by 0, error
+					return 1;
+				}
+				reg[ir_rd] = reg[ir_rs] / reg[ir_rt];
+				printf("div\n");
+				scanf("%d", &n);
 				break;
 			}
-		case 0x1010: // addi
-			ir_rt = ir_rs + ir_imm;
 			break;
-		case 0x1011: // subi
-			ir_rt = ir_rs - ir_imm;
+		case 0xA000: // addi
+			reg[ir_rt] = reg[ir_rs] + ir_imm;
+			writeWord(ir & 0x1C00, ir_rt);
+			printf("addi %d\n", ir_rt);
+			scanf("%d", &n);
 			break;
-		case 0x0100: // lw
-			ir_rt = readWord(ir_rs + ir_imm * 2);
+		case 0xB000: // subi
+			reg[ir_rt] = reg[ir_rs] - ir_imm;
+			printf("subi\n");
+			scanf("%d", &n);
 			break;
-		case 0x0101: // sw
-			writeWord(ir_rs + ir_imm * 2, ir_rt);
+		case 0x4000: // lw
+			reg[ir_rt / 64] = readWord(reg[ir_rs] + ir_imm * 2);
+			printf("lw\n");
+			scanf("%d", &n);
 			break;
-		case 0x0001: // beq
+		case 0x5000: // sw
+			mem[readWord(reg[ir_rs] + ir_imm * 2)] = reg[ir_rt];
+			printf("sw\n");
+			scanf("%d", &n);
+			break;
+		case 0x1000: // beq
 			if (ir_rs - ir_rt == 0)
 			{
 				pc += ir_imm * 2;
 			}
 			pc = ir_a;
+			printf("beq\n");
+			scanf("%d", &n);
 			break;
-		case 0x0011: // j addr
+		case 0x3000: // j addr
 			pc += 2 + ir_a * 2;
+			printf("j addr\n");
+			scanf("%d", &n);
 			break;
-		case 0x1111: // j halt
+		case 0xF000: // j halt
+			scanf("%d", &n);
+			printf("j halt\n");
 			status = 0;
 			break;
 		}
+		printRegisters();
 	}
 
 	return 0;
