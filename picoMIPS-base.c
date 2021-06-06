@@ -133,11 +133,22 @@ UINT loadProgram()
 	memset(mem, 0, MEM_SIZE);
 
 	/*
-		Y = A*A + B*B
+		S = A + (A+1) + (A+2) + ... + (B-1) + B
 
-		0100: A = -10
-		0102: B = 20
-		0104: Y
+		0100: A = -2
+		0102: B = 3
+		0104: S
+
+		r1 = A	// counter
+		r2 = B + 1
+		r3 = 0	// sum
+		#loop_begin
+		if (r1 == r2) goto loop_end	// !(A <= B) => (A > B) => (A == B + 1)
+		r3 = r3 + r1
+		r1 = r1 + 1
+		goto loop_begin
+		#loop_end
+		S = r3
 
 		sub	r0, r0, r0		// r0 = 0
 			0000 000 000 000 011		=> 0000 0000 0000 0011 => 0003
@@ -145,42 +156,56 @@ UINT loadProgram()
 			1010 000 000 010000			=> 1010 0000 0001 0000 => A010
 		mul	r0, r0, r0		// r0 = r0*r0 = 0x0100
 			0000 000 000 000 100		=> 0000 0010 0000 0100 => 0004
-		lw	r1, 0(r0)		// r1 = A (0x0100 + 0*2 = 0x0100)
+		lw	r1, 0(r0)		// r1 = A
 			0100 000 001 000000 (100h)	=> 0100 0000 0100 0000 => 4040
-		lw	r2,	1(r0)		// r2 = B (0x0100 + 1*2 = 0x0102)
+		lw	r2,	1(r0)		// r2 = B
 			0100 000 010 000001 (102h)	=> 0100 0000 1000 0001 => 4081
-		mul	r3, r1, r1		// r3 = r1*r1
-			0000 001 001 011 100		=> 0000 0010 0101 1100 => 025C
-		mul	r4, r2, r2		// r4 = r2*r2
-			0000 010 010 100 100		=> 0000 0100 1010 0100 => 04A4
-		add	r5, r3, r4		// r5 = r3 + r4
-			0000 011 100 101 010		=> 0000 0111 0010 1010 => 072A
-		sw	r5, 02(r0)		// Y = r5 (0x0100 + 2*2 = 0x0104)
-			0101 000 101 000010 (104h)	=> 0101 0001 0100 0010 => 5142
+		addi r2, r2, 1
+			1010 010 010 000001			=> 1010 0100 1000 0001 => A481
+		sub r3, r3, r3		// r3 = 0
+			0000 011 011 011 011		=> 0000 0110 1101 1011 => 06DB
+		#loop_begin
+		beq r1, r2, loop_end(+3)
+			0001 001 010 000011			=> 0001 0010 1000 0011 => 1283
+		add r3, r3, r1		// r3 = r3 + r1
+			0000 011 001 011 010		=> 0000 0110 0101 1010 => 065A
+		addi r1, r1, 1		// r1 = r1 + 1
+			1010 001 001 000001			=> 1010 0010 0100 0001 => A241
+		j loop_begin(-4)
+			0011 111111111100			=> 0011 1111 1111 1100 => 3FFC
+		#loop_end
+		sw r3, 2(r0)		// S = r3
+			0101 000 011 000002			=> 0101 0000 1100 0001 => 50C2
 		halt
 			1111 0000 0000 0000								   => F000
 	*/
 
 	// DATA section ----------------------------------------
 
-	data_end = writeWords(data_bgn = 0x0100,
-						  0xFFF6, //	0100:	A = -10
-						  0x0014, //	0102:	B = 20
-						  0x0000, //	0104:	Y
+	data_end = writeWords(data_bgn =
+							  0x0100,
+						  0xFFFE, //	0100:	A = -2
+						  0x0003, //	0102:	B = 3
+						  0x0000, //	0104:	S
+						  
 						  END_OF_ARG);
 
 	// CODE section ----------------------------------------
 
-	code_end = writeWords(code_bgn = 0x0200,
+	code_end = writeWords(code_bgn =
+							  0x0200,
 						  0x0003,
 						  0xA010,
 						  0x0004,
 						  0x4040,
 						  0x4081,
-						  0x025C,
-						  0x04A4,
-						  0x072A,
-						  0x5142,
+						  0xA481,
+						  0x06DB,
+						  0x1283,
+						  0x065A,
+						  0xA241,
+						  0x3FFC,
+						  0x50C2,
 						  0xF000,
 						  END_OF_ARG);
 
@@ -232,7 +257,21 @@ int runProgram(UINT code_addr)
 		printf("mar %x, ir %x\n", mar, ir);
 
 		ir_op = ir & 0xF000;
-		ir_imm = (ir & 0x003F);
+		ir_imm = ir & 0x003F;
+		
+		if ((ir_imm & 0x0020) == 0x0020)
+		{
+			ir_imm = (short)ir_imm | 0xFFC0;
+		}
+		ir_a = ir & 0x0FFF;
+		if (mar == 0x0214)
+		{
+			printf("%x", ir_a);
+		}
+		if ((ir_a & 0x0800) == 0x0800){
+			ir_a = (short)(ir_a | 0xF000);
+			printf("minus %d", ir_a);
+		}
 		pc += (UINT)2; // set PC to next ir_a
 		printf("COUNT= %d\n", count);
 		count += 1;
@@ -243,7 +282,6 @@ int runProgram(UINT code_addr)
 		ir_fn = ir & 0x0007;
 
 		printf("rs %x, rt %x, rd %x\n", ir_rs, ir_rt, ir_rd);
-		scanf("%d", &n);
 
 		// execution cycle
 		switch (ir_op)
@@ -306,22 +344,22 @@ int runProgram(UINT code_addr)
 			scanf("%d", &n);
 			break;
 		case 0x5000: // sw
-			mem[reg[ir_rs] + ir_imm * 2] = writeWord(reg[ir_rt]);
-			printf("sw %x\n", mem[reg[ir_rs] + ir_imm * 2]);
+			writeWord((reg[ir_rs] + ir_imm * 2), reg[ir_rt]);
 			scanf("%d", &n);
 			break;
 		case 0x1000: // beq
-			if (ir_rs - ir_rt == 0)
+			if (reg[ir_rs] - reg[ir_rt] == 0)
 			{
 				pc += ir_imm * 2;
+				printf("beq\n");
 			}
-			pc = ir_a;
-			printf("beq\n");
 			scanf("%d", &n);
 			break;
 		case 0x3000: // j addr
-			pc += 2 + ir_a * 2;
-			printf("j addr\n");
+			
+			printf("bf pc %x, addr *2 %x\n", pc, ir_a*2);
+			pc += ir_a * 2;
+			printf("j addr %x\n", pc);
 			scanf("%d", &n);
 			break;
 		case 0xF000: // j halt
