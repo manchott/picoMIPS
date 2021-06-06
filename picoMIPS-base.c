@@ -261,7 +261,8 @@ int runProgram(UINT code_addr)
 				scanf("%d", &n);
 				break;
 			case 0x0002: // add
-				reg[ir_rd >> 16] = reg[ir_rs] + reg[ir_rt];
+				reg[ir_rd / 8] = reg[ir_rs / 512] + reg[ir_rt / 64];
+				printf("rs %x, rt %x, rd %x\n", ir_rs / 512, ir_rt / 64, ir_rd / 8);
 				printf("add\n");
 				scanf("%d", &n);
 				break;
@@ -271,7 +272,8 @@ int runProgram(UINT code_addr)
 				scanf("%d", &n);
 				break;
 			case 0x0004: // mul
-				reg[ir_rd] = reg[ir_rs] * reg[ir_rt];
+				reg[ir_rd / 8] = reg[ir_rs / 512] * reg[ir_rt / 64];
+				printf("rs %x, rt %x, rd %x\n", ir_rs / 512, ir_rt / 64, ir_rd / 8);
 				printf("mul %d\n", ir_rd);
 				scanf("%d", &n);
 				break;
