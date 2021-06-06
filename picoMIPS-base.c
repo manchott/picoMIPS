@@ -219,6 +219,7 @@ int runProgram(UINT code_addr)
 	UINT ir_a = 0;	 // address part of IR, IR[11:0]
 	int n = 0;
 
+	int count = 1;
 	UINT pc = code_addr; // set PC to start address of program
 
 	while (status)
@@ -233,10 +234,12 @@ int runProgram(UINT code_addr)
 		ir_op = ir & 0xF000;
 		ir_imm = (ir & 0x003F);
 		pc += (UINT)2; // set PC to next ir_a
+		printf("COUNT= %d\n", count);
+		count += 1;
 
-		ir_rs = ir & 0x0E00;
-		ir_rt = ir & 0x01C0;
-		ir_rd = ir & 0x0038;
+		ir_rs = ((ir & 0x0E00) >> 9);
+		ir_rt = ((ir & 0x01C0) >> 6);
+		ir_rd = ((ir & 0x0038) >> 3);
 		ir_fn = ir & 0x0007;
 
 		printf("rs %x, rt %x, rd %x\n", ir_rs, ir_rt, ir_rd);
@@ -261,8 +264,7 @@ int runProgram(UINT code_addr)
 				scanf("%d", &n);
 				break;
 			case 0x0002: // add
-				reg[ir_rd / 8] = reg[ir_rs / 512] + reg[ir_rt / 64];
-				printf("rs %x, rt %x, rd %x\n", ir_rs / 512, ir_rt / 64, ir_rd / 8);
+				reg[ir_rd] = reg[ir_rs] + reg[ir_rt];
 				printf("add\n");
 				scanf("%d", &n);
 				break;
@@ -272,8 +274,7 @@ int runProgram(UINT code_addr)
 				scanf("%d", &n);
 				break;
 			case 0x0004: // mul
-				reg[ir_rd / 8] = reg[ir_rs / 512] * reg[ir_rt / 64];
-				printf("rs %x, rt %x, rd %x\n", ir_rs / 512, ir_rt / 64, ir_rd / 8);
+				reg[ir_rd] = reg[ir_rs] * reg[ir_rt];
 				printf("mul %d\n", ir_rd);
 				scanf("%d", &n);
 				break;
@@ -300,13 +301,13 @@ int runProgram(UINT code_addr)
 			scanf("%d", &n);
 			break;
 		case 0x4000: // lw
-			reg[ir_rt / 64] = readWord(reg[ir_rs] + ir_imm * 2);
+			reg[ir_rt] = readWord(reg[ir_rs] + ir_imm * 2);
 			printf("lw\n");
 			scanf("%d", &n);
 			break;
 		case 0x5000: // sw
-			mem[readWord(reg[ir_rs] + ir_imm * 2)] = reg[ir_rt];
-			printf("sw\n");
+			mem[reg[ir_rs] + ir_imm * 2] = writeWord(reg[ir_rt]);
+			printf("sw %x\n", mem[reg[ir_rs] + ir_imm * 2]);
 			scanf("%d", &n);
 			break;
 		case 0x1000: // beq
